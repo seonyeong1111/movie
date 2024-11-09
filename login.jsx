@@ -2,6 +2,11 @@ import React from "react";
 import "./login.css";
 import useForm from "../hooks/useForm.js";
 import validate from "../utils/validate.js";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { Context } from "../context/context.jsx";
+import { useContext } from "react";
+
 function Login() {
   const login = useForm({
     init: {
@@ -11,10 +16,45 @@ function Login() {
     validate: validate,
   });
 
+  const navigate = useNavigate();
+  const { login: setlogin, setNickname } = useContext(Context);
+
+  const handPressLogin = async (event) => {
+    event.preventDefault();
+
+    try {
+      const response = await axios.post(
+        "http://localhost:3000/auth/login",
+        login.values
+      );
+
+      const { accessToken, refreshToken } = response.data;
+      setlogin(accessToken, refreshToken);
+      await fetchUserData(accessToken);
+      navigate("/");
+    } catch (error) {
+      console.error("로그인 API 호출 오류:", error);
+    }
+  };
+
+  const fetchUserData = async (accessToken) => {
+    try {
+      const response = await axios.get("http://localhost:3000/user/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const userNickname = response.data.email.split("@")[0];
+      setNickname(userNickname);
+    } catch (error) {
+      console.error("유저 정보를 가져오는 데 오류가 발생했습니다:", error);
+    }
+  };
+
   return (
     <div className="page-container login">
       <h1 className="h1">로그인</h1>
-      <form className="form ">
+      <form className="form" onSubmit={handPressLogin}>
         <label>Email</label>
         <input
           className="input"
