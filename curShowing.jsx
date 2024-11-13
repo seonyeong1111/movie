@@ -1,31 +1,35 @@
 import Card from "../../components/card.jsx";
-//import useGetData from "../../hooks/useGetData.jsx";
 import CardSkeleton from "../../components/card-skeleton.jsx";
-import { useEffect } from "react";
-import { useGetInfiniteMovies } from "../../hooks/queries/useGetInfiniteMovies.js";
-import { useInView } from "react-intersection-observer";
-import ClipLoader from "react-spinners/ClipLoader";
-//ref: 관찰할 요소에 설정하는 참조입니다. ref를 설정한 요소가 화면에 들어오면 inView 값이 true로 변경됩니다.
-//inView: 요소가 화면에 보이면 true, 그렇지 않으면 false입니다.
-//threshold: 요소가 보이는 것으로 간주되는 비율을 설정합니다. 예를 들어, 0.1로 설정하면 요소의 10%가 보일 때 inView가 true가 됩니다.
+import { useState } from "react";
+import { axiosInstance } from "../../apis/axios-instance.jsx";
+import { useQuery } from "@tanstack/react-query";
+
 const CurShowing = () => {
+  const [page, setPage] = useState(1);
+
+  const getData = async () => {
+    return await axiosInstance.get(
+      `/movie/now_playing?language=ko-KR&page=${page}`
+    );
+  };
+
   const {
-    data: movies,
+    data = [],
     isPending,
     isError,
     error,
-    isFetching,
-    hasNextPage,
-    fetchNextPage,
-  } = useGetInfiniteMovies("now_playing");
+    isPreviousData,
+  } = useQuery({
+    queryKey: ["movies", page],
+    queryFn: getData,
+    onError: (error) => {
+      console.error("Error fetching data:", error);
+    },
+    keepPreviousData: true,
+  });
 
-  const { ref, inView } = useInView({ threshold: 0 });
-
-  useEffect(() => {
-    if (inView) {
-      !isFetching && hasNextPage && fetchNextPage();
-    }
-  }, [isFetching, hasNextPage, fetchNextPage, inView]);
+  const hasMore = data.data?.page < data.data?.total_pages;
+  console.log(data);
 
   if (isPending) {
     return (
@@ -39,13 +43,40 @@ const CurShowing = () => {
   }
 
   return (
-    <div className="movieRender page-container">
-      {movies.pages?.map((movie) =>
-        movie.results.map((movie) => <Card key={movie.id} movie={movie} />)
+    <div className="page-container pagination-container">
+      {isPending ? (
+        <div className="skeleton">
+          <CardSkeleton num={20} />;
+        </div>
+      ) : isError ? (
+        <div>Error: {error.message}</div>
+      ) : (
+        <div className="movieRender">
+          {data.data.results?.map((movie) => (
+            <Card key={movie.id} movie={movie} />
+          ))}
+        </div>
       )}
-      {isFetching && <CardSkeleton num={20} />}
-      <div ref={ref} className="scroll">
-        {isFetching && <ClipLoader color={"#fff"}></ClipLoader>}
+      <div className="pagination">
+        <button
+          className="button"
+          onClick={() => setPage((old) => Math.max(old - 1, 1))}
+          disabled={page === 1}
+        >
+          Previous Page
+        </button>
+        <span className="currentPage">Current Page: {page}</span>
+        <button
+          className="button"
+          onClick={() => {
+            if (!isPreviousData && hasMore) {
+              setPage((old) => old + 1);
+            }
+          }}
+          disabled={isPreviousData || !hasMore}
+        >
+          Next Page
+        </button>
       </div>
     </div>
   );
