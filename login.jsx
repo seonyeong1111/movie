@@ -6,6 +6,8 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Context } from "../context/context.jsx";
 import { useContext } from "react";
+import { queryClient } from "../main.jsx";
+import { useMutation } from "@tanstack/react-query";
 
 function Login() {
   const login = useForm({
@@ -19,7 +21,34 @@ function Login() {
   const navigate = useNavigate();
   const { login: setlogin, setNickname } = useContext(Context);
 
+  const postTodo = async () => {
+    const { data } = await axios.post(
+      "http://localhost:3000/auth/login",
+      login.values
+    );
+    return data;
+  };
+
+  const postMutation = useMutation({
+    mutationFn: postTodo,
+    onSuccess: (data) => {
+      console.log("postTodo연결성공");
+      queryClient.invalidateQueries({ queryKey: ["login"] });
+    },
+    onError: (error) => {
+      console.error("postMutation에러", error.message);
+    },
+  });
+
   const handPressLogin = async (event) => {
+    event.preventDefault();
+    const data = await postMutation.mutateAsync();
+    const { accessToken, refreshToken } = data;
+    setlogin(accessToken, refreshToken);
+    await fetchUserData(accessToken);
+    navigate("/");
+  };
+  /*const handPressLogin = async (event) => {
     event.preventDefault();
 
     try {
@@ -35,7 +64,7 @@ function Login() {
     } catch (error) {
       console.error("로그인 API 호출 오류:", error);
     }
-  };
+  };*/
 
   const fetchUserData = async (accessToken) => {
     try {

@@ -3,6 +3,10 @@ import "./login.css";
 import { useForm } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient } from "../main";
 
 function Signup() {
   const schema = yup.object().shape({
@@ -28,9 +32,44 @@ function Signup() {
     resolver: yupResolver(schema),
     mode: "onChange",
   });
-  const onSubmit = (data) => {
-    console.log(data);
+
+  const navigate = useNavigate();
+
+  const postTodo = async (signupData) => {
+    const { data } = await axios.post(
+      "http://localhost:3000/auth/register",
+      signupData
+    );
+    return data;
   };
+
+  const postMutation = useMutation({
+    mutationFn: postTodo,
+    onSuccess: () => {
+      console.log("postTodo연결성공");
+      queryClient.invalidateQueries({ queryKey: ["signup"] });
+    },
+    onError: (error) => {
+      console.error("postMutation에러", error.message);
+    },
+  });
+
+  const onSubmit = async (data) => {
+    postMutation.mutate(data);
+    navigate("/login");
+  };
+
+  /*const onSubmit = async (data) => {
+    try {
+      const response = await axios.post(
+        "http://localhost:3000/auth/register",
+        data
+      );
+      navigate("/login");
+    } catch (error) {
+      console.error("회원가입 API 호출 오류:", error);
+    }
+  };*/
   return (
     <div className="page-container login ">
       <h1 className="h1">회원가입</h1>
